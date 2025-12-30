@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Happy New Year</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poiret+One&family=Viaoda+Libre&display=swap" rel="stylesheet">
+
+<style>
+  html, body{
+    margin:0; padding:0; height:100%;
+    overflow:hidden; background:#000;
+    font-family:"Poiret One", system-ui, sans-serif;
+  }
+
+  canvas{
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    display:block; background:#000;
+    z-index:0;
+  }
+
+  :root{
+    --border:#fff;
+    --text:#fff;
+  }
+
+  body{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    color:var(--text);
+  }
+
+  .card{
+    z-index:2;
+    background:transparent;
+    width:20rem;
+    height:30rem;
+    border:1px solid var(--border);
+    position:relative;
+    padding:1rem;
+    pointer-events:none;
+  }
+
+  .corner{
+    width:.5rem; height:.5rem;
+    border:1px solid var(--border);
+    position:absolute;
+  }
+  .corner::after,.corner::before{content:"";position:absolute;}
+  .corner::after{width:2rem;height:calc(1rem - 1px);}
+  .corner::before{width:calc(1rem - 1px);height:2rem;}
+
+  .corner.left{left:-.5rem;}
+  .corner.right{right:-.5rem;}
+  .corner.top{top:-.5rem;}
+  .corner.bottom{bottom:-.5rem;}
+
+  .corner.left::after{left:calc(-2px + 1rem);border-left:1px solid var(--border);}
+  .corner.left::before{left:-1px;border-left:1px solid var(--border);}
+  .corner.right::after{right:calc(-2px + 1rem);border-right:1px solid var(--border);}
+  .corner.right::before{right:-1px;border-right:1px solid var(--border);}
+  .corner.top::after{top:-1px;border-top:1px solid var(--border);}
+  .corner.top::before{top:calc(-2px + 1rem);border-top:1px solid var(--border);}
+  .corner.bottom::after{bottom:-1px;border-bottom:1px solid var(--border);}
+  .corner.bottom::before{bottom:calc(-2px + 1rem);border-bottom:1px solid var(--border);}
+
+  h1{
+    font-family:"Viaoda Libre", serif;
+    text-align:center;
+    color:var(--text);
+    margin:.75rem 0 .5rem;
+    letter-spacing:.5px;
+  }
+  p{
+    color:var(--text);
+    opacity:.9;
+    line-height:1.6;
+    margin:.5rem 0 0;
+  }
+
+  /* ปุ่มเพลง (ไม่ใช่ overlay) */
+  #musicBtn{
+    position:fixed;
+    left:12px;
+    bottom:12px;
+    z-index:5;
+    background:transparent;
+    color:#fff;
+    border:1px solid #fff;
+    padding:10px 12px;
+    border-radius:12px;
+    cursor:pointer;
+    font-family:system-ui, sans-serif;
+    font-size:12px;
+  }
+  #musicBtn:hover{opacity:.85;}
+</style>
+</head>
+
+<body>
+<canvas id="canvas"></canvas>
+
+<div class="card">
+  <div class="corner top left"></div>
+  <div class="corner top right"></div>
+  <div class="corner bottom left"></div>
+  <div class="corner bottom right"></div>
+  <h1>Happy New Year</h1>
+  <p>I hope every day brings you a little more happiness and a lot less stress. May you get plenty of rest and never have to push yourself too hard. Stay just the way you are — it really suits you. ✨</p>
+</div>
+
+<!-- แนะนำให้เปลี่ยนชื่อไฟล์เพลงเป็น music/new-years-day.mp3 (ไม่มีช่องว่าง) -->
+<!-- ถ้าไม่เปลี่ยน ใช้ %20 เช่น music/New%20Years%20Day.mp3 -->
+<audio id="bgm" src="music/New-Years-Day.mp3" loop preload="auto"></audio>
+
+<button id="musicBtn">Play Music</button>
+
+<script>
+/* ================== AUDIO ================== */
+const bgm = document.getElementById("bgm");
+bgm.volume = 0.6;
+
+// พยายาม autoplay (ถ้าโดนบล็อกก็เงียบ)
+bgm.play().catch(()=>{});
+
+const musicBtn = document.getElementById("musicBtn");
+musicBtn.addEventListener("click", async () => {
+  try{
+    if (bgm.paused){
+      await bgm.play();
+      musicBtn.textContent = "Pause Music";
+    }else{
+      bgm.pause();
+      musicBtn.textContent = "Play Music";
+    }
+  }catch(e){
+    musicBtn.textContent = "Music Error";
+  }
+});
+
+/* ================== CANVAS ================== */
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+function updateCanvasSize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+updateCanvasSize();
+window.addEventListener("resize", updateCanvasSize);
+
+/* ================== LIGHT FIREWORKS (จุดแสง) ================== */
+const PARTICLES_PER_FIREWORK = 150;
+const FIREWORK_CHANCE = 0.02;
+const BASE_PARTICLE_SPEED = 0.6;
+const FIREWORK_LIFESPAN = 650;
+const PARTICLE_INITIAL_SPEED = 4.5;
+const GRAVITY = 9.8;
+
+let particles = [];
+
+function createFirework(x = Math.random()*canvas.width, y = Math.random()*canvas.height){
+  let speed = (Math.random()*2) + BASE_PARTICLE_SPEED;
+  let maxSpeed = speed;
+
+  let red = ~~(Math.random()*255);
+  let green = ~~(Math.random()*255);
+  let blue = ~~(Math.random()*255);
+
+  red = (red < 150 ? red + 150 : red);
+  green = (green < 150 ? green + 150 : green);
+  blue = (blue < 150 ? blue + 150 : blue);
+
+  for (let i=0;i<PARTICLES_PER_FIREWORK;i++){
+    particles.push(new LightParticle(x,y,red,green,blue,speed,false));
+    maxSpeed = (speed > maxSpeed ? speed : maxSpeed);
+  }
+  for (let i=0;i<40;i++){
+    particles.push(new LightParticle(x,y,red,green,blue,maxSpeed,true));
+  }
+}
+
+class LightParticle{
+  constructor(x,y,red,green,blue,speed,isFixedSpeed){
+    this.x=x; this.y=y;
+    this.red=red; this.green=green; this.blue=blue;
+    this.alpha=0.05;
+    this.radius=1+Math.random();
+    this.angle=Math.random()*360;
+
+    this.speed=(Math.random()*speed)+0.1;
+    this.velocityX=Math.cos(this.angle)*this.speed;
+    this.velocityY=Math.sin(this.angle)*this.speed;
+
+    if (isFixedSpeed){
+      this.speed=speed;
+      this.velocityY=Math.sin(this.angle)*this.speed;
+      this.velocityX=Math.cos(this.angle)*this.speed;
+    }
+
+    this.initialVelocityX=this.velocityX;
+    this.initialVelocityY=this.velocityY;
+
+    this.startTime=Date.now();
+    this.duration=Math.random()*300 + FIREWORK_LIFESPAN;
+    this.dampening=30;
+    this.colour=this.getColour();
+  }
+
+  animate(){
+    const t = Date.now()-this.startTime;
+
+    if (t <= 200){
+      this.x += this.initialVelocityX * PARTICLE_INITIAL_SPEED;
+      this.y += this.initialVelocityY * PARTICLE_INITIAL_SPEED;
+      this.alpha += 0.01;
+      this.colour = this.getColour(240,240,240,0.9);
+    }else{
+      this.x += this.velocityX;
+      this.y += this.velocityY;
+      this.colour = this.getColour(this.red,this.green,this.blue,0.45 + Math.random()*0.25);
+    }
+
+    this.velocityY += GRAVITY/1000;
+
+    if (t >= this.duration){
+      this.velocityX -= this.velocityX/this.dampening;
+      this.velocityY -= this.velocityY/this.dampening;
+    }
+
+    if (t >= this.duration + this.duration/1.1){
+      this.alpha -= 0.02;
+    }else{
+      if (this.alpha < 1) this.alpha += 0.03;
+    }
+  }
+
+  render(){
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.radius,0,Math.PI*2,true);
+    ctx.fillStyle = this.colour;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = this.getColour(
+      Math.min(this.red+150,255),
+      Math.min(this.green+150,255),
+      Math.min(this.blue+150,255),
+      1
+    );
+    ctx.fill();
+  }
+
+  getColour(red,green,blue,alpha){
+    const r = (red ?? this.red);
+    const g = (green ?? this.green);
+    const b = (blue ?? this.blue);
+    const a = (alpha ?? this.alpha);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+}
+
+/* ================== IMAGE FIREWORKS (พลุรูป) ================== */
+/* หมายเหตุ: โฟลเดอร์คุณใช้ "image/" อยู่แล้ว ให้แน่ใจว่ามีจริงบน GitHub Pages */
+const IMAGE_URLS = [
+  "image/01.jpg","image/02.jpg","image/03.png","image/04.png","image/05.png","image/06.png",
+  "image/07.png","image/08.jpg","image/09.png","image/10.jpg","image/11.jpg",
+  "image/12.jpg","image/13.jpg","image/14.jpg","image/15.jpg","image/16.jpg"
+];
+
+const imagePool = IMAGE_URLS.map(url => {
+  const img = new Image();
+  img.src = url;
+  return img;
+});
+
+function pickRandomLoadedImage(){
+  const loaded = imagePool.filter(im => im.complete && im.naturalWidth > 0);
+  if (loaded.length === 0) return null;
+  return loaded[~~(Math.random()*loaded.length)];
+}
+
+const IMAGES_PER_BURST = 12;
+const IMAGE_LIFESPAN = 1400;
+const IMAGE_BASE_SPEED = 1.0;
+const IMAGE_INITIAL_KICK = 2.6;
+
+let imageParticles = [];
+
+class ImageParticle{
+  constructor(x,y,img){
+    this.img = img;
+    this.x = x;
+    this.y = y;
+
+    this.angle = Math.random()*Math.PI*2;
+    this.baseSpeed = IMAGE_BASE_SPEED + Math.random()*1.6;
+
+    this.vx = Math.cos(this.angle) * this.baseSpeed;
+    this.vy = Math.sin(this.angle) * this.baseSpeed;
+
+    this.start = Date.now();
+    this.life = IMAGE_LIFESPAN + Math.random()*650;
+
+    this.alpha = 0.0;
+    this.spin = (Math.random()*2 - 1) * 0.06;
+    this.rot = Math.random()*Math.PI*2;
+
+    const s = 30 + Math.random()*22;
+    this.w = s;
+    this.h = s;
+
+    this.kickUntil = 240;
+  }
+
+  animate(){
+    const t = Date.now() - this.start;
+
+    if (t <= this.kickUntil){
+      this.x += this.vx * IMAGE_INITIAL_KICK;
+      this.y += this.vy * IMAGE_INITIAL_KICK;
+      this.alpha = Math.min(1, this.alpha + 0.08);
+    }else{
+      this.x += this.vx;
+      this.y += this.vy;
+      this.alpha = Math.min(1, this.alpha + 0.025);
+    }
+
+    this.vy += GRAVITY/1200;
+    this.rot += this.spin;
+
+    const fadeStart = this.life * 0.75;
+    if (t > fadeStart){
+      const k = (t - fadeStart) / (this.life - fadeStart);
+      this.alpha = Math.max(0, 1 - k);
+    }
+  }
+
+  render(){
+    if (!this.img.complete) return;
+
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = "rgba(255,255,255,0.45)";
+
+    ctx.drawImage(this.img, -this.w/2, -this.h/2, this.w, this.h);
+    ctx.restore();
+  }
+
+  isDead(){
+    const t = Date.now() - this.start;
+    return (t > this.life) || (this.alpha <= 0) ||
+      (this.y > canvas.height + 80) || (this.x < -80) || (this.x > canvas.width + 80);
+  }
+}
+
+function createImageFirework(
+  x = Math.random()*canvas.width,
+  y = Math.random()*canvas.height*0.7
+){
+  const img = pickRandomLoadedImage();
+  if (!img) return;
+
+  for (let i=0;i<IMAGES_PER_BURST;i++){
+    imageParticles.push(new ImageParticle(x,y,img));
+  }
+}
+
+/* ================== MAIN LOOP ================== */
+/* ทำให้รูปเล่นช้าลง: ยิงทุก IMAGE_INTERVAL_MS */
+let nextImageBurstAt = 0;
+const IMAGE_INTERVAL_MS = 5000; // ปรับช้า/เร็ว: 1500 / 2000 / 3000
+
+function loop(){
+  const now = Date.now();
+
+  // พลุจุดแสง (สุ่มตามเดิม)
+  if (Math.random() < FIREWORK_CHANCE) createFirework();
+
+  // พลุรูป (ช้าลงแบบกำหนดเวลา)
+  if (now >= nextImageBurstAt){
+    createImageFirework();
+    nextImageBurstAt = now + IMAGE_INTERVAL_MS;
+  }
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // แสง
+  for (let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.animate();
+    p.render();
+    if (p.alpha <= 0 || p.y > canvas.height || p.x < 0 || p.x > canvas.width){
+      particles.splice(i,1);
+    }
+  }
+
+  // รูป
+  for (let i = imageParticles.length - 1; i >= 0; i--){
+    const ip = imageParticles[i];
+    ip.animate();
+    ip.render();
+    if (ip.isDead()) imageParticles.splice(i,1);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// คลิกเพื่อยิงเพิ่มทั้งแสง+รูป
+canvas.addEventListener("click", (e) => {
+  createFirework(e.clientX, e.clientY);
+  createImageFirework(e.clientX, e.clientY);
+});
+
+loop();
+</script>
+</body>
+</html>
